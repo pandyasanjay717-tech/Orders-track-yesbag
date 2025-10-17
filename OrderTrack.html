@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Tracking - YesBag</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        
+        .container { 
+            max-width: 400px; margin: 0 auto; background: white; 
+            border-radius: 20px; padding: 25px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); 
+        }
+        
+        .header { text-align: center; margin-bottom: 25px; }
+        .logo { font-size: 32px; margin-bottom: 10px; }
+        .order-id { font-weight: bold; color: #2c3e50; font-size: 18px; margin-bottom: 15px; }
+        
+        .status { 
+            padding: 15px; border-radius: 25px; color: white; font-weight: bold; 
+            text-align: center; margin-bottom: 25px; font-size: 16px; 
+        }
+        .status-pending { background: #ffc107; color: #000; }
+        .status-confirmed { background: #17a2b8; }
+        .status-shipped { background: #28a745; }
+        .status-delivered { background: #6c757d; }
+        
+        .product-info { 
+            background: #f8f9fa; padding: 20px; border-radius: 15px; 
+            margin-bottom: 20px; text-align: center; 
+        }
+        .product-image { 
+            width: 120px; height: 120px; border-radius: 15px; 
+            background-size: cover; margin: 0 auto 10px; 
+        }
+        .product-title { font-weight: bold; color: #2c3e50; margin-bottom: 5px; font-size: 16px; }
+        .product-price { color: #28a745; font-weight: bold; font-size: 14px; }
+        
+        .buyer-details { 
+            background: #f8f9fa; padding: 15px; border-radius: 12px; 
+            margin-bottom: 25px; font-size: 13px; 
+        }
+        .buyer-details p { margin-bottom: 8px; color: #6c757d; }
+        .buyer-details strong { color: #2c3e50; }
+        
+        .track-timeline { margin-top: 20px; }
+        .timeline-item { 
+            display: flex; align-items: center; gap: 15px; 
+            margin-bottom: 20px; padding: 10px; 
+            background: #f8f9fa; border-radius: 10px; 
+        }
+        .timeline-dot { 
+            width: 25px; height: 25px; border-radius: 50%; 
+            background: #ddd; position: relative; 
+        }
+        .timeline-dot.active { background: #28a745; }
+        .timeline-dot.active::after { 
+            content: '✓'; color: white; position: absolute; 
+            top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            font-size: 12px; font-weight: bold; 
+        }
+        .timeline-text { flex: 1; font-size: 14px; color: #2c3e50; }
+        
+        .bottom-bar { 
+            position: fixed; bottom: 0; left: 0; width: 100%; 
+            background: #2c3e50; display: flex; justify-content: space-around; 
+            padding: 10px 0; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); 
+        }
+        .bar-item { 
+            color: white; text-align: center; font-size: 14px; 
+            cursor: pointer; padding: 5px 10px; border-radius: 8px; 
+            transition: all 0.3s; min-width: 60px; 
+        }
+        .bar-item:hover { background: rgba(255,255,255,0.1); transform: scale(1.05); }
+        .bar-item.active { background: rgba(255,255,255,0.2); }
+        
+        .loading { text-align: center; padding: 50px; color: #6c757d; }
+        .error { text-align: center; padding: 50px; color: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">🛍️ YesBag</div>
+            <h2>📦 Order Tracking</h2>
+            <p class="order-id" id="orderId">Loading...</p>
+        </div>
+
+        <div class="status" id="orderStatus">Loading...</div>
+
+        <div class="product-info" id="productInfo">
+            <div style="color:#6c757d;">Loading product...</div>
+        </div>
+
+        <div class="buyer-details" id="buyerDetails">
+            <div style="color:#6c757d;">Loading details...</div>
+        </div>
+
+        <div class="track-timeline" id="timeline">
+            <div style="text-align:center;color:#6c757d;">Loading timeline...</div>
+        </div>
+    </div>
+
+    <div class="bottom-bar">
+        <div class="bar-item" onclick="window.location.href='buyersHome.html'">🏠</div>
+        <div class="bar-item" onclick="window.location.href='cart.html'">🛒</div>
+        <div class="bar-item">⭐</div>
+        <div class="bar-item active">📦</div>
+        <div class="bar-item" onclick="window.location.href='profile.html'">👤</div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAmAI2z12tk2bnlm__JT24ZGr5giB7Wpk0",
+            authDomain: "yesbag-84897.firebaseapp.com",
+            databaseURL: "https://yesbag-84897-default-rtdb.firebaseio.com",
+            projectId: "yesbag-84897",
+            storageBucket: "yesbag-84897.firebasestorage.app",
+            messagingSenderId: "2154662115",
+            appId: "1:2154662115:web:3382afabeff5519510ddd6"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        // 🔥 GET ORDER ID FROM URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const orderId = urlParams.get('id');
+        
+        // 🔥 FIXED: NO RETURN HERE - JUST CHECK
+        if (!orderId) {
+            document.querySelector('.container').innerHTML = '<div class="error">❌ Invalid Tracking Link</div>';
+        } else {
+            // 🔥 REAL-TIME ORDER TRACKING
+            const orderRef = ref(db, `orders/${orderId}`);
+            onValue(orderRef, (snapshot) => {
+                const order = snapshot.val();
+                
+                // 🔥 FIXED: PROPER IF-ELSE
+                if (!order) {
+                    document.querySelector('.container').innerHTML = '<div class="error">❌ Order Not Found</div>';
+                } else {
+                    console.log('📦 TRACKING ORDER:', order);
+                    
+                    // ORDER ID
+                    document.getElementById('orderId').textContent = `#${order.orderId.slice(-6)}`;
+
+                    // STATUS
+                    const statusEl = document.getElementById('orderStatus');
+                    statusEl.textContent = order.status.toUpperCase();
+                    statusEl.className = `status status-${order.status}`;
+
+                    // 🔥 SINGLE PRODUCT (FIRST ITEM ONLY)
+                    const firstProduct = order.cart[0];
+                    const productInfo = document.getElementById('productInfo');
+                    productInfo.innerHTML = `
+                        <div class="product-image" style="background-image: url('${firstProduct.image || "https://via.placeholder.com/120?text=Product"}');"></div>
+                        <div class="product-title">${firstProduct.title}</div>
+                        <div class="product-price">₹${firstProduct.price} x ${firstProduct.qty || 1}</div>
+                    `;
+
+                    // BUYER DETAILS
+                    const buyerDetails = document.getElementById('buyerDetails');
+                    buyerDetails.innerHTML = `
+                        <p><strong>👤 Buyer:</strong> ${order.address.name}</p>
+                        <p><strong>📞 Phone:</strong> +91 ${order.address.phone}</p>
+                        <p><strong>📍 Address:</strong> ${order.address.address}</p>
+                        <p><strong>💰 Total:</strong> ₹${order.total}</p>
+                        <p><strong>💳 Payment:</strong> ${order.payment.toUpperCase()}</p>
+                    `;
+
+                    // TIMELINE
+                    const statuses = ['pending', 'confirmed', 'shipped', 'delivered'];
+                    const currentIndex = statuses.indexOf(order.status);
+                    const timeline = document.getElementById('timeline');
+                    timeline.innerHTML = statuses.map((s, i) => `
+                        <div class="timeline-item">
+                            <div class="timeline-dot ${i <= currentIndex ? 'active' : ''}"></div>
+                            <div class="timeline-text">
+                                <strong>${s.toUpperCase()}</strong>
+                                ${i <= currentIndex ? '<br><small>✅ Completed</small>' : '<br><small>⏳ Waiting</small>'}
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            });
+        }
+
+        console.log('🔍 === ORDER TRACKING 100% FIXED ===');
+    </script>
+</body>
+</html>
